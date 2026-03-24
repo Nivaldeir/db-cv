@@ -1,5 +1,7 @@
 import {
+  CreateBucketCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
   type PutObjectCommandInput,
@@ -17,6 +19,49 @@ function requireEnv(name: string): string {
 }
 
 let cachedClient: S3Client | null = null
+let ensuredBucketName: string | null = null
+
+function isBucketMissingError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false
+  const x = e as {
+    name?: string
+    Code?: string
+    $metadata?: { httpStatusCode?: number }
+    message?: string
+  }
+  const code = x.name ?? x.Code
+  if (code === "NotFound" || code === "NoSuchBucket") return true
+  if (x.$metadata?.httpStatusCode === 404) return true
+  if (typeof x.message === "string" && /does not exist/i.test(x.message)) {
+    return true
+  }
+  return false
+}
+
+export async function ensureMinioDocumentsBucket(): Promise<void> {
+  const Bucket = getMinioDocumentsBucketName()
+  if (ensuredBucketName === Bucket) return
+  const client = getMinioS3Client()
+  try {
+    await client.send(new HeadBucketCommand({ Bucket }))
+  } catch (e: unknown) {
+    if (!isBucketMissingError(e)) throw e
+    try {
+      await client.send(new CreateBucketCommand({ Bucket }))
+    } catch (createErr: unknown) {
+      const c = createErr as { name?: string; Code?: string }
+      const n = c.name ?? c.Code
+      if (
+        n !== "BucketAlreadyExists" &&
+        n !== "BucketAlreadyOwnedByYou" &&
+        n !== "OperationAborted"
+      ) {
+        throw createErr
+      }
+    }
+  }
+  ensuredBucketName = Bucket
+}
 
 export function isMinioConfigured(): boolean {
   return Boolean(
@@ -48,11 +93,24 @@ export function getMinioDocumentsBucketName(): string {
   return requireEnv("MINIO_BUCKET_DOCUMENTS")
 }
 
+export async function getDocumentObjectBuffer(key: string): Promise<Buffer> {
+  await ensureMinioDocumentsBucket()
+  const client = getMinioS3Client()
+  const Bucket = getMinioDocumentsBucketName()
+  const out = await client.send(new GetObjectCommand({ Bucket, Key: key }))
+  if (!out.Body) {
+    throw new Error("Objeto vazio no storage")
+  }
+  const bytes = await out.Body.transformToByteArray()
+  return Buffer.from(bytes)
+}
+
 export async function putDocumentObject(
   key: string,
   body: PutObjectCommandInput["Body"],
   contentType?: string,
 ): Promise<void> {
+  await ensureMinioDocumentsBucket()
   const client = getMinioS3Client()
   const Bucket = getMinioDocumentsBucketName()
   await client.send(

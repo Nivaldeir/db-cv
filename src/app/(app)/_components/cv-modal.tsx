@@ -22,8 +22,13 @@ export function CVModal({ cv, onClose }: CVModalProps) {
   if (!cv) return null
 
   return (
-    <Dialog open={!!cv} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-card border-border">
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className="w-[1100px] overflow-y-auto bg-card border-border">
         <DialogHeader className="flex flex-row items-start justify-between">
           <div className="flex flex-col gap-2">
             <DialogTitle className="text-2xl font-bold text-foreground">
@@ -36,7 +41,6 @@ export function CVModal({ cv, onClose }: CVModalProps) {
         </DialogHeader>
 
         <div className="flex flex-col gap-6 mt-4">
-          {/* Contact Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 text-muted-foreground">
               <Mail className="h-4 w-4 text-primary" />
@@ -61,7 +65,6 @@ export function CVModal({ cv, onClose }: CVModalProps) {
 
           <Separator className="bg-border" />
 
-          {/* Position Info */}
           <div className="flex flex-col gap-3">
             <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
               Informação Profissional
@@ -90,7 +93,6 @@ export function CVModal({ cv, onClose }: CVModalProps) {
 
           <Separator className="bg-border" />
 
-          {/* Skills */}
           <div className="flex flex-col gap-3">
             <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
               Competências
@@ -110,7 +112,6 @@ export function CVModal({ cv, onClose }: CVModalProps) {
 
           <Separator className="bg-border" />
 
-          {/* Summary */}
           <div className="flex flex-col gap-3">
             <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
               Resumo
@@ -118,7 +119,6 @@ export function CVModal({ cv, onClose }: CVModalProps) {
             <p className="text-muted-foreground leading-relaxed">{cv.resumo}</p>
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" asChild>
               <a href={`/api/cv/${cv.id}/pdf`} download>

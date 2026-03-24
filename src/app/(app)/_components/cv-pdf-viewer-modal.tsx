@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,8 +24,19 @@ export function CvPdfViewerModal({
   open,
   onOpenChange,
 }: CvPdfViewerModalProps) {
+  const [loadToken, setLoadToken] = useState(0)
+
+  useEffect(() => {
+    if (open && cvId) {
+      setLoadToken((t) => t + 1)
+    }
+  }, [open, cvId])
+
   if (!cvId) return null
-  const src = `/api/cv/${cvId}/pdf`
+  const src =
+    loadToken > 0
+      ? `/api/cv/${cvId}/pdf?t=${loadToken}`
+      : `/api/cv/${cvId}/pdf`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,6 +52,7 @@ export function CvPdfViewerModal({
         </DialogHeader>
         <div className="flex flex-1 flex-col px-6 pb-6 min-h-0">
           <iframe
+            key={`${cvId}-${loadToken}`}
             title="CV PDF"
             src={src}
             className="flex-1 w-full min-h-[60vh] rounded-md border border-border bg-muted"

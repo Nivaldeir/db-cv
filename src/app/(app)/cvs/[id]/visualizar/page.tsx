@@ -24,6 +24,7 @@ export default async function CvVisualizarPage({ params }: Props) {
         </Button>
       </div>
       <iframe
+        key={id}
         title="Visualização do CV"
         src={src}
         className="flex-1 w-full min-h-[400px] rounded-lg border border-border bg-muted"
