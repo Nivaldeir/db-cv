@@ -1,9 +1,12 @@
 import { parse } from "csv-parse/sync"
 import { SHEET_ROW_PDF_URL_KEY } from "./constants"
-import { resolveCvPdfColumnIndex } from "./sheet-columns"
+import { resolveCvPdfColumnIndexForSource } from "./sheet-columns"
 import type { SheetRow } from "./types"
 
-export function parseGoogleSheetCvCsv(csvText: string): SheetRow[] {
+export function parseGoogleSheetCvCsv(
+  csvText: string,
+  sourceLabel?: string,
+): SheetRow[] {
   const text = csvText.replace(/^\uFEFF/, "")
   const raw = parse(text, {
     columns: false,
@@ -17,7 +20,7 @@ export function parseGoogleSheetCvCsv(csvText: string): SheetRow[] {
   }
 
   const headers = (raw[0] ?? []).map((h) => (h ?? "").trim())
-  const urlCol = resolveCvPdfColumnIndex(headers)
+  const urlCol = resolveCvPdfColumnIndexForSource(headers, sourceLabel)
 
   if (urlCol < 0 || urlCol >= headers.length) {
     throw new Error(

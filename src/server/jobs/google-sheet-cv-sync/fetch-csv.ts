@@ -4,6 +4,7 @@ import type { SheetRow } from "./types"
 
 export async function fetchSheetRowsFromCsvUrl(
   csvUrl: string,
+  sourceLabel?: string,
 ): Promise<{ ok: true; rows: SheetRow[] } | { ok: false; error: string }> {
   const res = await fetch(csvUrl, {
     headers: { "User-Agent": BROWSER_USER_AGENT },
@@ -17,7 +18,7 @@ export async function fetchSheetRowsFromCsvUrl(
   }
 
   try {
-    const rows = parseGoogleSheetCvCsv(await res.text())
+    const rows = parseGoogleSheetCvCsv(await res.text(), sourceLabel)
     return { ok: true, rows }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)

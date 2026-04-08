@@ -58,8 +58,11 @@ export type RowParseOutcome =
 export function parseImportRow(
   row: SheetRow,
   spreadsheetLineNumber: number,
+  sourceLabel?: string,
 ): RowParseOutcome {
-  const lineLabel = `Linha ${spreadsheetLineNumber}`
+  const lineLabel = sourceLabel
+    ? `${sourceLabel} - Linha ${spreadsheetLineNumber}`
+    : `Linha ${spreadsheetLineNumber}`
   const map = rowToNormalizedMap(row)
 
   const pdfUrl = pdfUrlFromRow(row)

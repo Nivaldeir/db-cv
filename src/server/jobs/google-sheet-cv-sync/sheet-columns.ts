@@ -31,5 +31,25 @@ export function resolveCvPdfColumnIndex(headers: string[]): number {
   )
   if (fuzzy >= 0) return fuzzy
 
-  return 3
+  return -1
+}
+
+export function resolveCvPdfColumnIndexForSource(
+  headers: string[],
+  sourceLabel?: string,
+): number {
+  const byHeader = resolveCvPdfColumnIndex(headers)
+  if (byHeader >= 0 && byHeader < headers.length) return byHeader
+
+  const source = (sourceLabel ?? "").toLowerCase()
+  if (source.includes("estudantes")) {
+    // Aba estudantes: A Nome, B Email, C Telefone, D Data, E URL CV
+    return 4
+  }
+
+  // Aba profissionais experientes: A..H, URL em H
+  if (headers.length >= 8) return 7
+
+  // Fallback final: última coluna disponível.
+  return Math.max(0, headers.length - 1)
 }

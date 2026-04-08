@@ -16,7 +16,7 @@ import {
   Clock,
   Plus,
   Download,
-  Upload
+  UserPlus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +37,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { CandidateDetailModal } from "./candidate-detail-modal"
 import {
   type Candidate,
@@ -44,6 +51,7 @@ import {
   candidateStatusColors,
   candidateStatusLabels,
 } from "@/app/(app)/utils/candidates"
+import { type CV } from "@/app/(app)/utils/cv"
 import { trpc } from "@/trpc/react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -51,8 +59,11 @@ export function CandidatesPage() {
   const utils = trpc.useUtils()
   const { data: candidates = [], isLoading, isError } =
     trpc.candidate.list.useQuery()
+  const { data: cvs = [] } = trpc.cv.list.useQuery()
 
   const [searchTerm, setSearchTerm] = useState("")
+  const [cvSearchTerm, setCvSearchTerm] = useState("")
+  const [isSelectCvOpen, setIsSelectCvOpen] = useState(false)
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban")
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   const [filterCargo, setFilterCargo] = useState<string>("all")
@@ -74,6 +85,14 @@ export function CandidatesPage() {
       )
     },
   })
+  const createCandidateMutation = trpc.candidate.create.useMutation({
+    onSuccess: (created) => {
+      void utils.candidate.list.invalidate()
+      setSelectedCandidate(created)
+      setIsSelectCvOpen(false)
+      setCvSearchTerm("")
+    },
+  })
 
   const cargos = [...new Set(candidates.map(c => c.cargo))]
   const fontes = [...new Set(candidates.map(c => c.fonte))]
@@ -91,6 +110,25 @@ export function CandidatesPage() {
     return matchesSearch && matchesCargo && matchesFonte
   })
 
+  const existingCandidateKeys = new Set(
+    candidates.map((c) => `${c.email.toLowerCase()}::${c.cvUrl}`),
+  )
+
+  const availableCvs = cvs.filter(
+    (cv) => !existingCandidateKeys.has(`${cv.email.toLowerCase()}::${cv.cvUrl}`),
+  )
+
+  const filteredAvailableCvs = availableCvs.filter((cv) => {
+    const q = cvSearchTerm.toLowerCase()
+    if (!q) return true
+    return (
+      cv.nome.toLowerCase().includes(q) ||
+      cv.email.toLowerCase().includes(q) ||
+      cv.cargo.toLowerCase().includes(q) ||
+      cv.skills.some((s) => s.toLowerCase().includes(q))
+    )
+  })
+
   const toggleFavorite = (id: string) => {
     const c = candidates.find((x) => x.id === id)
     if (!c) return
@@ -101,8 +139,33 @@ export function CandidatesPage() {
     updateStatusMutation.mutate({ id: candidateId, status: newStatus })
   }
 
+  const rejectCandidate = (candidateId: string) => {
+    moveCandidate(candidateId, "rejeitado")
+  }
+
+  const addCandidateFromCv = (cv: CV) => {
+    createCandidateMutation.mutate({
+      nome: cv.nome || "Sem nome",
+      email: cv.email || "sem-email@importado.local",
+      telefone: cv.telefone || "—",
+      cargo: cv.cargo || "—",
+      experiencia: cv.experiencia || "—",
+      localizacao: cv.localizacao || "—",
+      skills: cv.skills,
+      status: "novo",
+      dataSubmissao: cv.dataSubmissao,
+      cvUrl: cv.cvUrl,
+      resumo: cv.resumo || "",
+      favorito: false,
+      rating: 0,
+      fonte: "Banco de CVs",
+    })
+  }
+
   const mutationPending =
-    updateMutation.isPending || updateStatusMutation.isPending
+    updateMutation.isPending ||
+    updateStatusMutation.isPending ||
+    createCandidateMutation.isPending
 
   if (isError) {
     return (
@@ -218,11 +281,7 @@ export function CandidatesPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Importar CVs
-          </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsSelectCvOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Candidato
           </Button>
@@ -293,7 +352,7 @@ export function CandidatesPage() {
             {pipelineStages.map(stage => {
               const stageCandidates = filteredCandidates.filter(c => c.status === stage.id)
               return (
-                <div key={stage.id} className="w-72 flex-shrink-0">
+                <div key={stage.id} className="w-72 shrink-0">
                   <div className="flex items-center gap-2 mb-3">
                     <div className={`w-2 h-2 rounded-full ${stage.color}`} />
                     <h3 className="font-medium text-sm text-foreground">{stage.label}</h3>
@@ -390,16 +449,33 @@ export function CandidatesPage() {
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate) }}>
                             Ver Detalhes
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(candidate.cvUrl, "_blank", "noopener,noreferrer")
+                            }}
+                          >
                             <Download className="h-4 w-4 mr-2" />
                             Download CV
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.location.href = `mailto:${candidate.email}`
+                            }}
+                          >
                             <Mail className="h-4 w-4 mr-2" />
                             Enviar Email
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            disabled={mutationPending}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              rejectCandidate(candidate.id)
+                            }}
+                          >
                             Rejeitar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -423,6 +499,55 @@ export function CandidatesPage() {
           }}
         />
       )}
+
+      <Dialog open={isSelectCvOpen} onOpenChange={setIsSelectCvOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar candidato a partir dos CVs cadastrados</DialogTitle>
+            <DialogDescription>
+              Selecione um CV ainda não convertido em candidato.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={cvSearchTerm}
+                onChange={(e) => setCvSearchTerm(e.target.value)}
+                placeholder="Pesquisar CV por nome, email, cargo ou skill..."
+                className="pl-10"
+              />
+            </div>
+
+            <div className="max-h-96 overflow-auto border border-border rounded-md divide-y divide-border">
+              {filteredAvailableCvs.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  Nenhum CV disponível para adicionar.
+                </div>
+              ) : (
+                filteredAvailableCvs.map((cv) => (
+                  <div key={cv.id} className="p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{cv.nome}</p>
+                      <p className="text-xs text-muted-foreground truncate">{cv.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">{cv.cargo}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={mutationPending}
+                      onClick={() => addCandidateFromCv(cv)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Selecionar
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

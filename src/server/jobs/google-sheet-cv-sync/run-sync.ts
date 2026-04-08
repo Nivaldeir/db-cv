@@ -1,7 +1,7 @@
 import { extractCvFromPdfWithGemini } from "@/server/gemini/extract-cv-from-pdf"
 import type { CvExtractionResult } from "@/server/gemini/cv-extraction-schema"
 import { isMinioConfigured, putDocumentObject } from "@/server/storage/minio"
-import { resolveGoogleSheetCsvUrlFromEnv } from "./csv-url"
+import { resolveGoogleSheetCsvSourcesFromEnv } from "./csv-url"
 import { fetchSheetRowsFromCsvUrl } from "./fetch-csv"
 import { fetchPdfBufferFromUrl } from "./pdf-fetch"
 import {
@@ -46,79 +46,81 @@ export async function runGoogleSheetCvSync(): Promise<GoogleSheetCvSyncResult> {
     warnings: [],
   }
 
-  const csvUrl = resolveGoogleSheetCsvUrlFromEnv()
-  if (!csvUrl) {
+  const csvSources = resolveGoogleSheetCsvSourcesFromEnv()
+  if (csvSources.length === 0) {
     result.errors.push(
       "Defina GOOGLE_SHEETS_CSV_URL ou GOOGLE_SHEETS_SPREADSHEET_ID no .env",
     )
     return result
   }
 
-  const sheet = await fetchSheetRowsFromCsvUrl(csvUrl)
-  if (!sheet.ok) {
-    result.errors.push(sheet.error)
-    return result
-  }
-
-  result.fetchedRows = sheet.rows.length
-
-  for (let i = 0; i < sheet.rows.length; i++) {
-    const spreadsheetLine = i + 2
-    const parsed = parseImportRow(sheet.rows[i]!, spreadsheetLine)
-
-    if (!parsed.ok) {
-      result.warnings.push(parsed.warning)
-      result.skipped++
+  for (const source of csvSources) {
+    const sheet = await fetchSheetRowsFromCsvUrl(source.csvUrl, source.label)
+    if (!sheet.ok) {
+      result.errors.push(`${source.label}: ${sheet.error}`)
       continue
     }
 
-    const row = parsed.value
-    const pdf = await downloadPdfAndMaybeUpload(row.pdfUrl)
+    result.fetchedRows += sheet.rows.length
 
-    if (pdf.ok) {
-      result.pdfOk++
-    } else {
-      result.pdfFailed++
-      result.warnings.push(
-        `${row.lineLabel} (${row.nome}): PDF não processado (download ou MinIO) — registo criado/atualizado na mesma. Causa: ${pdf.errorMessage ?? "desconhecido"}`,
-      )
-    }
+    for (let i = 0; i < sheet.rows.length; i++) {
+      const spreadsheetLine = i + 2
+      const parsed = parseImportRow(sheet.rows[i]!, spreadsheetLine, source.label)
 
-    let geminiFields: CvGeminiMergeFields | null = null
-    let geminiExtraction: CvExtractionResult | null = null
-    if (pdf.ok && pdf.buffer && process.env.GEMINI_API_KEY?.trim()) {
-      try {
-        const extraction = await extractCvFromPdfWithGemini(pdf.buffer)
-        geminiExtraction = extraction
-        console.log(
-          `[sync] Gemini ${row.lineLabel} (${row.nome}) — JSON do modelo:\n`,
-          JSON.stringify(extraction, null, 2),
-        )
-        geminiFields = mapGeminiExtractionToCvFields(extraction)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
+      if (!parsed.ok) {
+        result.warnings.push(parsed.warning)
+        result.skipped++
+        continue
+      }
+
+      const row = parsed.value
+      const pdf = await downloadPdfAndMaybeUpload(row.pdfUrl)
+
+      if (pdf.ok) {
+        result.pdfOk++
+      } else {
+        result.pdfFailed++
         result.warnings.push(
-          `${row.lineLabel} (${row.nome}): extração Gemini falhou — registo usa só dados da planilha. ${msg}`,
+          `${row.lineLabel} (${row.nome}): PDF não processado (download ou MinIO) — registo criado/atualizado na mesma. Causa: ${pdf.errorMessage ?? "desconhecido"}`,
         )
       }
-    }
 
-    const { action, cvId } = await upsertCvFromSheetRow(
-      row,
-      pdf.storageKey,
-      geminiFields,
-    )
-    if (action === "created") result.created++
-    else result.updated++
+      let geminiFields: CvGeminiMergeFields | null = null
+      let geminiExtraction: CvExtractionResult | null = null
+      if (pdf.ok && pdf.buffer && process.env.GEMINI_API_KEY?.trim()) {
+        try {
+          const extraction = await extractCvFromPdfWithGemini(pdf.buffer)
+          geminiExtraction = extraction
+          console.log(
+            `[sync] Gemini ${row.lineLabel} (${row.nome}) — JSON do modelo:\n`,
+            JSON.stringify(extraction, null, 2),
+          )
+          geminiFields = mapGeminiExtractionToCvFields(extraction)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          result.warnings.push(
+            `${row.lineLabel} (${row.nome}): extração Gemini falhou — registo usa só dados da planilha. ${msg}`,
+          )
+        }
+      }
 
-    if (geminiExtraction) {
-      try {
-        await upsertCvExtractionFromGemini(cvId, geminiExtraction)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        result.warnings.push(
-          `${row.lineLabel} (${row.nome}): falha ao gravar extração estruturada (cv_extractions). ${msg}`,
-        )
+      const { action, cvId } = await upsertCvFromSheetRow(
+        row,
+        pdf.storageKey,
+        geminiFields,
+      )
+      if (action === "created") result.created++
+      else result.updated++
+
+      if (geminiExtraction) {
+        try {
+          await upsertCvExtractionFromGemini(cvId, geminiExtraction)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          result.warnings.push(
+            `${row.lineLabel} (${row.nome}): falha ao gravar extração estruturada (cv_extractions). ${msg}`,
+          )
+        }
       }
     }
   }
