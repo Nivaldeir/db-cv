@@ -40,14 +40,28 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
   type PipelineStage,
-  type TeamMember,
   type EmailTemplate,
   defaultPipeline,
-  defaultTeam,
   defaultTemplates,
   colorOptions,
 } from "./_utils/settings"
+import { trpc } from "@/trpc/react"
+import { toast } from "sonner"
+
+const createUserSchema = z.object({
+  name: z.string().min(1, "Nome obrigatório"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(8, "Mínimo 8 caracteres"),
+  role: z.enum(["admin", "recruiter", "viewer"]),
+})
 
 const addPipelineStageSchema = z.object({
   name: z.string().min(1, "Indique o nome da etapa").max(120),
@@ -69,8 +83,31 @@ const notificationsFormSchema = z.object({
 
 export default function ConfiguracoesPage() {
   const [pipeline, setPipeline] = useState<PipelineStage[]>(defaultPipeline)
-  const [team, setTeam] = useState<TeamMember[]>(defaultTeam)
   const [templates] = useState<EmailTemplate[]>(defaultTemplates)
+  const [openCreateUser, setOpenCreateUser] = useState(false)
+
+  const utils = trpc.useUtils()
+  const { data: users = [], isLoading: usersLoading } = trpc.auth.users.list.useQuery()
+  const createUser = trpc.auth.users.create.useMutation({
+    onSuccess: () => {
+      toast.success("Utilizador criado com sucesso")
+      void utils.auth.users.list.invalidate()
+      setOpenCreateUser(false)
+      createUserForm.reset()
+    },
+    onError: (e) => toast.error(e.message),
+  })
+  const deleteUser = trpc.auth.users.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Utilizador removido")
+      void utils.auth.users.list.invalidate()
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  const createUserForm = useZodForm(createUserSchema, {
+    defaultValues: { name: "", email: "", password: "", role: "recruiter" },
+  })
 
   const pipelineStageForm = useZodForm(addPipelineStageSchema, {
     defaultValues: { name: "" },
@@ -113,14 +150,6 @@ export default function ConfiguracoesPage() {
 
   const updateStageColor = (id: string, color: string) => {
     setPipeline(pipeline.map((s) => (s.id === id ? { ...s, color } : s)))
-  }
-
-  const deleteMember = (id: string) => {
-    setTeam(team.filter((m) => m.id !== id))
-  }
-
-  const updateMemberRole = (id: string, role: TeamMember["role"]) => {
-    setTeam(team.map((m) => (m.id === id ? { ...m, role } : m)))
   }
 
   return (
@@ -245,57 +274,53 @@ export default function ConfiguracoesPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Equipa</CardTitle>
+                  <CardTitle>Utilizadores</CardTitle>
                   <CardDescription>
-                    Gerencie os membros da equipa e as suas permissões
+                    Gerencie os utilizadores com acesso ao sistema
                   </CardDescription>
                 </div>
-                <Button>
+                <Button onClick={() => setOpenCreateUser(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Convidar
+                  Novo Utilizador
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {team.map((member) => (
+                {usersLoading && (
+                  <p className="text-sm text-muted-foreground">A carregar...</p>
+                )}
+                {users.map((user) => (
                   <div
-                    key={member.id}
+                    key={user.id}
                     className="flex items-center gap-4 p-4 bg-secondary/50 rounded-lg"
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-primary/20 text-primary">
-                        {member.name
+                        {(user.name ?? user.email)
                           .split(" ")
                           .map((n) => n[0])
                           .join("")
-                          .slice(0, 2)}
+                          .slice(0, 2)
+                          .toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{member.name}</p>
-                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">{user.name ?? "—"}</p>
+                      <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                     </div>
-                    <Select
-                      value={member.role}
-                      onValueChange={(role) =>
-                        updateMemberRole(member.id, role as TeamMember["role"])
-                      }
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="recruiter">Recrutador</SelectItem>
-                        <SelectItem value="viewer">Visualizador</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Badge variant="outline" className="shrink-0">
+                      {user.role === "admin" && "Administrador"}
+                      {user.role === "recruiter" && "Recrutador"}
+                      {user.role === "viewer" && "Visualizador"}
+                      {!["admin", "recruiter", "viewer"].includes(user.role ?? "") && user.role}
+                    </Badge>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => deleteMember(member.id)}
+                      className="text-destructive hover:text-destructive shrink-0"
+                      onClick={() => deleteUser.mutate({ id: user.id })}
+                      disabled={deleteUser.isPending}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -322,6 +347,90 @@ export default function ConfiguracoesPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Dialog open={openCreateUser} onOpenChange={setOpenCreateUser}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar Utilizador</DialogTitle>
+              </DialogHeader>
+              <Form {...createUserForm}>
+                <form
+                  onSubmit={createUserForm.handleSubmit((values) => createUser.mutate(values))}
+                  className="space-y-4"
+                >
+                  <FormField
+                    control={createUserForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome completo" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Palavra-passe</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Mínimo 8 caracteres" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createUserForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Perfil</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="recruiter">Recrutador</SelectItem>
+                            <SelectItem value="viewer">Visualizador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setOpenCreateUser(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={createUser.isPending}>
+                      {createUser.isPending ? "A criar..." : "Criar"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="templates" className="mt-6">
