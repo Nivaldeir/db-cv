@@ -19,6 +19,57 @@ function iaLabel(base: string) {
   return `${base}${GERADO_IA}`
 }
 
+function ExperienciaFormatada({ texto }: { texto: string }) {
+  const linhas = texto.split("\n").map((l) => l.trim()).filter(Boolean)
+
+  const meta: string[] = []
+  const historico: string[] = []
+
+  for (const linha of linhas) {
+    const lLow = linha.toLowerCase()
+    if (
+      lLow.startsWith("~") ||
+      lLow.startsWith("nivel") ||
+      lLow.startsWith("nível") ||
+      /^\d+\s*anos?/.test(lLow) ||
+      lLow.includes("estimativa")
+    ) {
+      meta.push(linha)
+    } else {
+      historico.push(linha)
+    }
+  }
+
+  if (meta.length === 0 && historico.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      {meta.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {meta.map((m, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center text-xs font-medium text-primary bg-primary/8 px-2 py-0.5 rounded-md"
+            >
+              {m}
+            </span>
+          ))}
+        </div>
+      )}
+      {historico.length > 0 && (
+        <ul className="flex flex-col gap-1 text-sm text-foreground">
+          {historico.map((h, i) => (
+            <li key={i} className="flex items-start gap-1.5 leading-snug">
+              <span className="mt-1.25 h-1.5 w-1.5 rounded-full bg-border shrink-0" />
+              <span>{h}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 interface CVModalProps {
   cv: CV | null
   onClose: () => void
@@ -47,8 +98,8 @@ export function CVModal({
         if (!open) onClose()
       }}
     >
-      <DialogContent className="w-[1100px] overflow-y-auto bg-card border-border">
-        <DialogHeader className="flex flex-row items-start justify-between">
+      <DialogContent className="w-[min(1100px,95vw)] max-h-[90dvh] flex flex-col bg-card border-border">
+        <DialogHeader className="flex flex-row items-start justify-between shrink-0">
           <div className="flex flex-col gap-2">
             <DialogTitle className="text-2xl font-bold text-foreground">
               {cv.nome}
@@ -59,7 +110,7 @@ export function CVModal({
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 mt-4">
+        <div className="flex flex-col gap-6 mt-4 overflow-y-auto pr-1 min-h-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3 text-muted-foreground">
               <Mail className="h-4 w-4 text-primary" />
@@ -108,9 +159,7 @@ export function CVModal({
                   <p className="text-sm text-muted-foreground">
                     {ext ? iaLabel("Experiência") : "Experiência"}
                   </p>
-                  <p className="font-medium text-foreground whitespace-pre-line">
-                    {cv.experiencia}
-                  </p>
+                  <ExperienciaFormatada texto={cv.experiencia ?? ""} />
                 </div>
               </div>
             </div>
@@ -172,7 +221,7 @@ export function CVModal({
                 <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                   {iaLabel("Experiências")}
                 </h4>
-                <ul className="space-y-4 list-none">
+                <ul className="space-y-4 list-none max-h-72 overflow-y-auto pr-1">
                   {ext.experiencias.map((exp, i) => (
                     <li
                       key={`${exp.empresa ?? ""}-${exp.cargo ?? ""}-${i}`}

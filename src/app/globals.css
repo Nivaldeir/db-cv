@@ -39,6 +39,41 @@
   --sidebar-ring: oklch(0.52 0.13 165);
 }
 
+.dark {
+  --background: oklch(0.13 0.008 260);
+  --foreground: oklch(0.97 0.005 260);
+  --card: oklch(0.17 0.008 260);
+  --card-foreground: oklch(0.97 0.005 260);
+  --popover: oklch(0.17 0.008 260);
+  --popover-foreground: oklch(0.97 0.005 260);
+  --primary: oklch(0.58 0.13 165);
+  --primary-foreground: oklch(0.06 0.02 165);
+  --secondary: oklch(0.22 0.008 260);
+  --secondary-foreground: oklch(0.9 0.005 260);
+  --muted: oklch(0.22 0.008 260);
+  --muted-foreground: oklch(0.6 0.01 260);
+  --accent: oklch(0.25 0.05 165);
+  --accent-foreground: oklch(0.85 0.08 165);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.26 0.008 260);
+  --input: oklch(0.26 0.008 260);
+  --ring: oklch(0.58 0.13 165);
+  --chart-1: oklch(0.58 0.13 165);
+  --chart-2: oklch(0.6 0.12 200);
+  --chart-3: oklch(0.55 0.12 240);
+  --chart-4: oklch(0.68 0.14 85);
+  --chart-5: oklch(0.62 0.14 310);
+  --sidebar: oklch(0.16 0.008 260);
+  --sidebar-foreground: oklch(0.97 0.005 260);
+  --sidebar-primary: oklch(0.58 0.13 165);
+  --sidebar-primary-foreground: oklch(0.06 0.02 165);
+  --sidebar-accent: oklch(0.25 0.05 165);
+  --sidebar-accent-foreground: oklch(0.85 0.08 165);
+  --sidebar-border: oklch(0.22 0.008 260);
+  --sidebar-ring: oklch(0.58 0.13 165);
+}
+
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
@@ -87,7 +122,48 @@
   html {
     color-scheme: light;
   }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+  ::selection {
+    background-color: oklch(0.52 0.13 165 / 0.18);
+    color: oklch(0.28 0.08 165);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 180ms ease-out both;
+  }
+  .animate-slide-up {
+    animation: slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      oklch(0.96 0.01 260) 25%,
+      oklch(0.92 0.01 260) 50%,
+      oklch(0.96 0.01 260) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
   }
 }
