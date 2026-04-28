@@ -155,7 +155,7 @@ export const settingsRouter = createTRPCRouter({
       if (!row) {
         return {
           id: "default" as const,
-          companyName: "Tática",
+          companyName: "TATICCA",
           companyEmail: "recrutamento@tatica.pt",
           companyWebsite: "https://tatica.pt",
         }

@@ -196,16 +196,16 @@ export function CVList() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary/50 hover:bg-secondary/50">
-              <TableHead className="text-foreground font-semibold">Candidato</TableHead>
-              <TableHead className="text-foreground font-semibold">Ultimos cargo</TableHead>
-              <TableHead className="text-foreground font-semibold hidden md:table-cell">Localização</TableHead>
-              <TableHead className="text-foreground font-semibold hidden lg:table-cell">Experiência</TableHead>
-              <TableHead className="text-foreground font-semibold hidden xl:table-cell">Origem</TableHead>
-              <TableHead className="text-foreground font-semibold hidden xl:table-cell">Idiomas</TableHead>
-              <TableHead className="text-foreground font-semibold hidden xl:table-cell">Educação</TableHead>
-              <TableHead className="text-foreground font-semibold">Status</TableHead>
-              <TableHead className="text-foreground font-semibold hidden sm:table-cell">Data</TableHead>
-              <TableHead className="text-foreground font-semibold text-right">Ações</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal">Candidato</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal">Ultimos cargo</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden md:table-cell">Localização</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden lg:table-cell">Experiência</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Origem</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Idiomas</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Educação</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal">Status</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal hidden sm:table-cell">Data</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

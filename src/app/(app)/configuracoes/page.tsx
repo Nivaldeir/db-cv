@@ -118,7 +118,7 @@ export default function ConfiguracoesPage() {
 
   const companyForm = useZodForm(companyFormSchema, {
     defaultValues: {
-      companyName: "Tática",
+      companyName: "TATICCA",
       companyEmail: "recrutamento@tatica.pt",
       companyWebsite: "https://tatica.pt",
     },
@@ -180,10 +180,10 @@ export default function ConfiguracoesPage() {
             <Mail className="h-4 w-4" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="company" className="gap-2">
+          {/* <TabsTrigger value="company" className="gap-2">
             <Building className="h-4 w-4" />
             Empresa
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
             Notificações
@@ -507,7 +507,7 @@ export default function ConfiguracoesPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="company" className="mt-6">
+        {/* <TabsContent value="company" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Dados da Empresa</CardTitle>
@@ -573,7 +573,7 @@ export default function ConfiguracoesPage() {
               </Form>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="notifications" className="mt-6">
           <Card>

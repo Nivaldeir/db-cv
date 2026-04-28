@@ -20,7 +20,7 @@ async function main() {
   await db.companySettings.create({
     data: {
       id: "default",
-      companyName: "Tática",
+      companyName: "TATICCA",
       companyEmail: "recrutamento@tatica.pt",
       companyWebsite: "https://tatica.pt",
     },
@@ -43,7 +43,7 @@ async function main() {
     where: { email: "admin@tatica.pt" },
     update: {},
     create: {
-      name: "Administrador Tática",
+      name: "Administrador TATICCA",
       email: "admin@tatica.pt",
       password: hashedPassword,
       role: "admin",
