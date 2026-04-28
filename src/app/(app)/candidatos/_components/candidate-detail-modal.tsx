@@ -300,14 +300,14 @@ export function CandidateDetailModal({ candidate, onClose, onStatusChange }: Can
                   <Download className="h-4 w-4 mr-2" />
                   Download CV
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                {/* <Button variant="outline" className="w-full justify-start">
                   <Calendar className="h-4 w-4 mr-2" />
                   Agendar Entrevista
                 </Button>
                 <Button variant="outline" className="w-full justify-start">
                   <Mail className="h-4 w-4 mr-2" />
                   Enviar Email
-                </Button>
+                </Button> */}
               </div>
             </div>
           </div>
