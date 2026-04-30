@@ -497,6 +497,7 @@ export function CandidatesPage() {
           onStatusChange={(newStatus) => {
             moveCandidate(selectedCandidate.id, newStatus)
           }}
+          onReextracted={(updated) => setSelectedCandidate(updated)}
         />
       )}
 

@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { mapCandidateToDto } from "@/server/lib/prisma-mappers"
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc"
+import { extractCvFromPdfWithGemini } from "@/server/gemini/extract-cv-from-pdf"
+import { mapGeminiExtractionToCvFields } from "@/server/jobs/google-sheet-cv-sync/map-gemini-extraction-to-cv"
 
 const candidateStatusZod = z.enum([
   "novo",
@@ -171,6 +173,59 @@ export const candidateRouter = createTRPCRouter({
       const row = await ctx.db.candidate.update({
         where: { id: input.id },
         data: { status: input.status },
+        include: {
+          notes: { orderBy: { recordedAt: "asc" } },
+          history: { orderBy: { recordedAt: "asc" } },
+        },
+      })
+      return mapCandidateToDto(row)
+    }),
+
+  reextract: publicProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const candidate = await ctx.db.candidate.findUnique({ where: { id: input.id } })
+      if (!candidate) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Candidato não encontrado" })
+      }
+
+      let pdfBuffer: Buffer
+      try {
+        const res = await fetch(candidate.cvUrl)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        pdfBuffer = Buffer.from(await res.arrayBuffer())
+      } catch (e) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Não foi possível baixar o PDF do candidato.",
+          cause: e,
+        })
+      }
+
+      let extraction
+      try {
+        extraction = await extractCvFromPdfWithGemini(pdfBuffer)
+      } catch (e) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Falha na extração por IA. Tente novamente.",
+          cause: e,
+        })
+      }
+
+      const fields = mapGeminiExtractionToCvFields(extraction)
+
+      const row = await ctx.db.candidate.update({
+        where: { id: input.id },
+        data: {
+          ...(fields.name ? { name: fields.name } : {}),
+          ...(fields.phone ? { phone: fields.phone } : {}),
+          ...(fields.jobTitle ? { jobTitle: fields.jobTitle } : {}),
+          ...(fields.experience ? { experience: fields.experience } : {}),
+          ...(fields.location ? { location: fields.location } : {}),
+          ...(fields.skills ? { skills: fields.skills } : {}),
+          ...(fields.summary ? { summary: fields.summary } : {}),
+        },
         include: {
           notes: { orderBy: { recordedAt: "asc" } },
           history: { orderBy: { recordedAt: "asc" } },

@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Send,
   DollarSign,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,11 +32,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { Candidate } from "@/app/(app)/utils/candidates"
+import { trpc } from "@/trpc/react"
 
 interface CandidateDetailModalProps {
   candidate: Candidate
   onClose: () => void
   onStatusChange: (status: Candidate["status"]) => void
+  onReextracted?: (updated: Candidate) => void
 }
 
 const statusOptions = [
@@ -58,9 +61,22 @@ const statusColors: Record<string, string> = {
   rejeitado: "bg-destructive/20 text-destructive border-destructive/30",
 }
 
-export function CandidateDetailModal({ candidate, onClose, onStatusChange }: CandidateDetailModalProps) {
+export function CandidateDetailModal({ candidate, onClose, onStatusChange, onReextracted }: CandidateDetailModalProps) {
   const [newNote, setNewNote] = useState("")
   const [rating, setRating] = useState(candidate.rating)
+  const [reextractError, setReextractError] = useState<string | null>(null)
+
+  const utils = trpc.useUtils()
+  const reextractMutation = trpc.candidate.reextract.useMutation({
+    onSuccess: (updated) => {
+      void utils.candidate.list.invalidate()
+      onReextracted?.(updated)
+      setReextractError(null)
+    },
+    onError: (err) => {
+      setReextractError(err.message)
+    },
+  })
 
   const renderStars = (currentRating: number, interactive = false) => {
     return (
@@ -296,18 +312,27 @@ export function CandidateDetailModal({ candidate, onClose, onStatusChange }: Can
               </div>
 
               <div className="space-y-2 pt-4 border-t border-border">
-                <Button variant="outline" className="w-full justify-start">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download CV
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <a href={candidate.cvUrl} target="_blank" rel="noopener noreferrer">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download CV
+                  </a>
                 </Button>
-                {/* <Button variant="outline" className="w-full justify-start">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Agendar Entrevista
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  disabled={reextractMutation.isPending}
+                  onClick={() => reextractMutation.mutate({ id: candidate.id })}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${reextractMutation.isPending ? "animate-spin" : ""}`} />
+                  {reextractMutation.isPending ? "A analisar..." : "Reanalisar com IA"}
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Enviar Email
-                </Button> */}
+                {reextractMutation.isSuccess && (
+                  <p className="text-xs text-green-500">Perfil atualizado com sucesso.</p>
+                )}
+                {reextractError && (
+                  <p className="text-xs text-destructive">{reextractError}</p>
+                )}
               </div>
             </div>
           </div>
