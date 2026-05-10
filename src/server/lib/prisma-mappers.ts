@@ -159,6 +159,7 @@ export function mapCvToDto(
     cvUrl: row.cvUrl,
     resumo: row.summary,
     sourceSheet: row.sourceSheet,
+    aiSeen: row.aiSeen,
     extracao: row.extraction ? mapCvExtractionToDto(row.extraction) : null,
   }
 }

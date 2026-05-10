@@ -15,6 +15,7 @@ function buildCvCreateData(
   row: ParsedImportRow,
   storageKey: string | null,
   gemini: CvGeminiMergeFields | null,
+  aiSeen: boolean,
 ) {
   const g = gemini ?? {}
   const phone =
@@ -33,6 +34,7 @@ function buildCvCreateData(
     sourceSheet: row.sourceSheet,
     storageKey,
     summary: (g.summary?.trim() || CV_IMPORT_SUMMARY),
+    aiSeen,
   }
 }
 
@@ -45,8 +47,9 @@ export async function upsertCvFromSheetRow(
   row: ParsedImportRow,
   storageKey: string | null,
   gemini: CvGeminiMergeFields | null = null,
+  aiSeen: boolean = false,
 ): Promise<UpsertCvFromSheetRowResult> {
-  const payload = buildCvCreateData(row, storageKey, gemini)
+  const payload = buildCvCreateData(row, storageKey, gemini, aiSeen)
 
   const exactMatch = await db.cv.findFirst({
     where: { email: row.emailNorm, cvUrl: row.pdfUrl },
@@ -77,6 +80,7 @@ export async function upsertCvFromSheetRow(
           ? { location: payload.location }
           : {}),
         ...(g != null && g.skills != null ? { skills: payload.skills } : {}),
+        ...(aiSeen ? { aiSeen: true } : {}),
       },
     })
     return { action: "updated", cvId: exactMatch.id }
@@ -118,6 +122,7 @@ export async function upsertCvFromSheetRow(
           ? { location: payload.location }
           : {}),
         ...(g != null && g.skills != null ? { skills: payload.skills } : {}),
+        ...(aiSeen ? { aiSeen: true } : {}),
       },
     })
     return { action: "updated", cvId: samePdf.id }

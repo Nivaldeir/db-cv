@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc"
 import { runGoogleSheetCvSync } from "@/server/jobs/google-sheet-cv-sync"
+import { reprocessUnseenCvs } from "@/server/jobs/reprocess-unseen-cvs"
 
 const teamRoleZod = z.enum(["admin", "recruiter", "viewer"])
 const emailTemplateTypeZod = z.enum([
@@ -184,6 +185,15 @@ export const settingsRouter = createTRPCRouter({
     syncGoogleSheet: publicProcedure.mutation(async () => {
       try {
         return await runGoogleSheetCvSync()
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message })
+      }
+    }),
+
+    reprocessUnseenCvs: publicProcedure.mutation(async () => {
+      try {
+        return await reprocessUnseenCvs()
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message })

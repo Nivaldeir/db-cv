@@ -23,6 +23,7 @@ model Cv {
   sourceSheet  String?
   storageKey   String?
   summary      String
+  aiSeen       Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   extraction   CvExtraction?

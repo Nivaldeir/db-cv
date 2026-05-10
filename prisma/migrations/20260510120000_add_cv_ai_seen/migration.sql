@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "cvs"
+ADD COLUMN "aiSeen" BOOLEAN NOT NULL DEFAULT false;

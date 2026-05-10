@@ -1,7 +1,17 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Eye, FileText, MapPin, Briefcase, Calendar } from "lucide-react"
+import { useEffect, useState } from "react"
+import {
+  Search,
+  Filter,
+  Eye,
+  FileText,
+  MapPin,
+  Briefcase,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +61,8 @@ function getEducacaoDisplay(cv: CV): string {
   return [grau, curso, instituicao].filter(Boolean).join(" - ") || "Não informado"
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
+
 export function CVList() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("todos")
@@ -59,6 +71,8 @@ export function CVList() {
   const [selectedCV, setSelectedCV] = useState<CV | null>(null)
   const [pdfCvId, setPdfCvId] = useState<string | null>(null)
   const [pdfCvTitle, setPdfCvTitle] = useState<string | undefined>(undefined)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(20)
 
   const { data: cvs = [] as CV[], isLoading, isError } = trpc.cv.list.useQuery()
   const utils = trpc.useUtils()
@@ -110,6 +124,15 @@ export function CVList() {
 
     return matchesSearch && matchesStatus && matchesCargo && matchesSource
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredCVs.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const startIndex = (currentPage - 1) * pageSize
+  const pageCvs = filteredCVs.slice(startIndex, startIndex + pageSize)
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery, statusFilter, cargoFilter, sourceFilter, pageSize])
 
   if (isError) {
     return (
@@ -185,11 +208,29 @@ export function CVList() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {filteredCVs.length} CV{filteredCVs.length !== 1 ? "s" : ""} encontrado
           {filteredCVs.length !== 1 ? "s" : ""}
         </p>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Por página</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => setPageSize(Number(v))}
+          >
+            <SelectTrigger className="w-22.5 bg-secondary border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden">
@@ -203,13 +244,14 @@ export function CVList() {
               <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Origem</TableHead>
               <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Idiomas</TableHead>
               <TableHead className="text-foreground font-semibold whitespace-normal hidden xl:table-cell">Educação</TableHead>
+              <TableHead className="text-foreground font-semibold whitespace-normal">Visto por IA?</TableHead>
               <TableHead className="text-foreground font-semibold whitespace-normal">Status</TableHead>
               <TableHead className="text-foreground font-semibold whitespace-normal hidden sm:table-cell">Data</TableHead>
               <TableHead className="text-foreground font-semibold whitespace-normal text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCVs.map((cv: CV) => (
+            {pageCvs.map((cv: CV) => (
               <TableRow
                 key={cv.id}
                 className="hover:bg-secondary/30 cursor-pointer transition-colors"
@@ -244,6 +286,18 @@ export function CVList() {
                 </TableCell>
                 <TableCell className="hidden xl:table-cell">
                   <span className="text-muted-foreground">{getEducacaoDisplay(cv)}</span>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    className={
+                      cv.aiSeen
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }
+                    variant="secondary"
+                  >
+                    {cv.aiSeen ? "Sim" : "Não"}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <Badge className={statusColors[cv.status]} variant="secondary">
@@ -292,6 +346,38 @@ export function CVList() {
           </TableBody>
         </Table>
       </div>
+
+      {filteredCVs.length > 0 && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            A mostrar {startIndex + 1}–{startIndex + pageCvs.length} de{" "}
+            {filteredCVs.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {filteredCVs.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">

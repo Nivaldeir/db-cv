@@ -66,15 +66,17 @@ export function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md bg-card border-border">
-        <CardHeader className="text-center items-center">
-          <Image
-            src="/logo.png"
-            alt="Taticca"
-            width={160}
-            height={54}
-            className="object-contain mb-2"
-            priority
-          />
+        <CardHeader className="text-center items-center gap-3">
+          <div className="bg-white rounded-md px-4 py-3 shadow-sm">
+            <Image
+              src="/logo.png"
+              alt="Taticca"
+              width={220}
+              height={86}
+              className="object-contain h-auto w-55"
+              priority
+            />
+          </div>
           <CardTitle className="text-xl font-bold text-foreground">
             Banco CV
           </CardTitle>

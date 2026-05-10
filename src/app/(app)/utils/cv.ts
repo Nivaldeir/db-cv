@@ -75,6 +75,7 @@ export interface CV {
   cvUrl: string
   resumo: string
   sourceSheet?: string | null
+  aiSeen: boolean
   extracao?: CvExtracaoDto | null
 }
 

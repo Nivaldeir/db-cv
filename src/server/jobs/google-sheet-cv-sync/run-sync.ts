@@ -1,7 +1,5 @@
-import {
-  extractCvFromPdfWithGemini,
-  GeminiCvExtractionError,
-} from "@/server/gemini/extract-cv-from-pdf"
+import { GeminiCvExtractionError } from "@/server/gemini/extract-cv-from-pdf"
+import { extractCvFromPdf } from "@/server/ai/extract-cv"
 import type { CvExtractionResult } from "@/server/gemini/cv-extraction-schema"
 import { isMinioConfigured, putDocumentObject } from "@/server/storage/minio"
 import { resolveGoogleSheetCsvSourcesFromEnv } from "./csv-url"
@@ -185,32 +183,40 @@ export async function runGoogleSheetCvSync(): Promise<GoogleSheetCvSyncResult> {
 
       let geminiFields: CvGeminiMergeFields | null = null
       let geminiExtraction: CvExtractionResult | null = null
-      if (pdf.ok && pdf.buffer && process.env.GEMINI_API_KEY?.trim()) {
+      let aiSeen = false
+      const hasAiKey =
+        Boolean(process.env.GEMINI_API_KEY?.trim()) ||
+        Boolean(process.env.GROQ_API_KEY?.trim())
+      if (pdf.ok && pdf.buffer && hasAiKey) {
         try {
-          const extraction = await extractCvFromPdfWithGemini(pdf.buffer)
+          const { result: extraction, provider } = await extractCvFromPdf(
+            pdf.buffer,
+          )
           geminiExtraction = extraction
-          logSync("info", "Extração Gemini concluída", {
+          aiSeen = true
+          logSync("info", "Extração IA concluída", {
             lineLabel: row.lineLabel,
             nome: row.nome,
+            provider,
           })
           console.log(
-            `[sync-google-sheet] Gemini ${row.lineLabel} (${row.nome}) — JSON do modelo:\n`,
+            `[sync-google-sheet] IA(${provider}) ${row.lineLabel} (${row.nome}) — JSON do modelo:\n`,
             JSON.stringify(extraction, null, 2),
           )
           geminiFields = mapGeminiExtractionToCvFields(extraction)
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
-          const warning = `${row.lineLabel} (${row.nome}): extração Gemini falhou — registo usa só dados da planilha. ${msg}`
+          const warning = `${row.lineLabel} (${row.nome}): extração IA falhou — registo usa só dados da planilha. ${msg}`
           result.warnings.push(warning)
-          logSync("warn", "Extração Gemini falhou", {
+          logSync("warn", "Extração IA falhou", {
             lineLabel: row.lineLabel,
             nome: row.nome,
             error: msg,
             details: normalizeErrorForLog(e),
           })
         }
-      } else if (!process.env.GEMINI_API_KEY?.trim()) {
-        logSync("info", "Extração Gemini desativada (sem GEMINI_API_KEY)", {
+      } else if (!hasAiKey) {
+        logSync("info", "Extração IA desativada (sem GEMINI_API_KEY/GROQ_API_KEY)", {
           lineLabel: row.lineLabel,
           nome: row.nome,
         })
@@ -220,6 +226,7 @@ export async function runGoogleSheetCvSync(): Promise<GoogleSheetCvSyncResult> {
         row,
         pdf.storageKey,
         geminiFields,
+        aiSeen,
       )
       if (action === "created") result.created++
       else result.updated++
